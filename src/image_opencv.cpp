@@ -1045,8 +1045,10 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
         frame_id++;
 
         // Static variables to track scores
-        static int score_player1 = 0; // Player on the left
-        static int score_player2 = 0; // Player on the right
+        static int last_score_frame_player1 = 0;
+        static int last_score_frame_player2 = 0;
+        static const int SCORE_COOLDOWN_FRAMES = 30; // Prevent rapid scoring
+        static bool ball_in_play = true;
 
         for (i = 0; i < num; ++i) {
             char labelstr[4096] = { 0 };

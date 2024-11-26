@@ -1,0 +1,5 @@
+classes = 3
+train = /root/scarlet/datasets/nn/ball/ball_v1/ball_v1_train.txt
+valid = /root/scarlet/datasets/nn/ball/ball_v1/ball_v1_valid.txt
+names = /root/scarlet/datasets/nn/ball/ball_v1/ball_v1.names
+backup = /root/scarlet/datasets/nn/ball/ball_v1

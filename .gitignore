@@ -12,6 +12,7 @@
 *.dylib
 *.pyc
 *.bak
+*.mp4
 mnist/
 data/
 caffe/

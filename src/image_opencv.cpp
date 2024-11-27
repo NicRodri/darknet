@@ -77,6 +77,21 @@ using std::endl;
 #define CV_AA cv::LINE_AA
 #endif
 
+struct TrackedObject {
+    std::string label;
+    int current_center_x;
+    int current_center_y;
+    int previous_center_x;
+    int previous_center_y;
+    int left;
+    int top;
+    int right;
+    int bottom;
+
+    TrackedObject() : previous_center_x(-1), previous_center_y(-1) {}
+};
+
+
 extern "C" {
 
     //struct mat_cv : cv::Mat {  };
@@ -1035,6 +1050,7 @@ extern "C" void save_cv_jpg(mat_cv *img_src, const char *name)
 //     }
 // }
 
+
 extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output)
 {
     try {
@@ -1045,10 +1061,14 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
         frame_id++;
 
         // Static variables to track scores
-        static int last_score_frame_player1 = 0;
-        static int last_score_frame_player2 = 0;
-        static const int SCORE_COOLDOWN_FRAMES = 30; // Prevent rapid scoring
-        static bool ball_in_play = true;
+        static bool is_ball_detected = false;
+        static float ball_prev_x = -1;
+        static float ball_prev_y = -1;
+        static int last_score_frame = 0;
+        static const int SCORE_COOLDOWN_FRAMES = 30;
+        static int score_player1 = 0;
+        static int score_player2 = 0;
+        static int in_play = 0;
 
         for (i = 0; i < num; ++i) {
             char labelstr[4096] = { 0 };
@@ -1109,10 +1129,47 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
                 if (bot > show_img->rows - 1) bot = show_img->rows - 1;
 
                 // Scoring logic: Check if the ball crosses the edges
-                if (left <= 0) {
-                    score_player2++; // Ball crossed the left edge, Player 2 scores
-                } else if (right >= show_img->cols) {
-                    score_player1++; // Ball crossed the right edge, Player 1 scores
+                if (right > 400 && right < 800) {
+                    in_play =1;
+                } 
+                
+
+                // printf("moving right?\n");
+                // printf("%d",ball_prev_x != -1 && dets[i].bbox.x > ball_prev_x);
+                // printf("\n");
+                // printf("moving left?\n");
+                // printf("%d", ball_prev_x != -1 && dets[i].bbox.x < ball_prev_x);
+                // printf("\n");
+               if (strcmp(names[class_id], "ball") == 0) {
+                    is_ball_detected = true;
+                    
+                    // Calculate ball movement direction
+                    float current_x = dets[i].bbox.x;
+                    float current_y = dets[i].bbox.y;
+                    bool moving_right = ball_prev_x != -1 && current_x > ball_prev_x;
+                    bool moving_left = ball_prev_x != -1 && current_x < ball_prev_x;
+
+                    // Scoring logic with directional check
+                    // printf("score for right?\n");
+                    // printf("%d",moving_right && left <= 0 && frame_id - last_score_frame > SCORE_COOLDOWN_FRAMES);
+                    // printf("\n");
+                    // printf("score for left?\n");
+                    // printf("%d", moving_left && right >= show_img->cols && frame_id - last_score_frame > SCORE_COOLDOWN_FRAMES);
+                    // printf("\n");
+                    if (moving_right && right >= show_img->cols - 1 && in_play) {
+                        score_player1++;
+                        last_score_frame = frame_id;
+                        in_play = 0;
+                    }
+                    else if (moving_left && left <= 0 && bot > 200 && bot > 200 && in_play) {
+                        score_player2++;
+                        last_score_frame = frame_id;
+                        in_play = 0;
+                    }
+
+                    // Update previous ball position
+                    ball_prev_x = current_x;
+                    ball_prev_y = current_y;
                 }
 
                 float const font_size = show_img->rows / 1000.F;
@@ -1136,6 +1193,11 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
                 color.val[2] = blue * 256;
 
                 cv::rectangle(*show_img, pt1, pt2, color, width, 8, 0);
+                if (ext_output)
+                    printf("\t(left_x: %4.0f   top_y: %4.0f   width: %4.0f   height: %4.0f)\n",
+                    (float)left, (float)top, b.w*show_img->cols, b.h*show_img->rows);
+                else
+                    printf("\n");
 
                 cv::rectangle(*show_img, pt_text_bg1, pt_text_bg2, color, width, 8, 0);
                 cv::rectangle(*show_img, pt_text_bg1, pt_text_bg2, color, CV_FILLED, 8, 0);

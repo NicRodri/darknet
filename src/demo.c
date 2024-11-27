@@ -19,6 +19,21 @@
 
 #include "http_stream.h"
 
+// struct TrackedObject {
+//     std::string label;
+//     int current_center_x;
+//     int current_center_y;
+//     int previous_center_x;
+//     int previous_center_y;
+//     int left;
+//     int top;
+//     int right;
+//     int bottom;
+
+//     TrackedObject() : previous_center_x(-1), previous_center_y(-1) {}
+// };
+
+
 static char **demo_names;
 static image **demo_alphabet;
 static int demo_classes;
@@ -267,6 +282,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
     float avg_fps = 0;
     int frame_counter = 0;
     int global_frame_counter = 0;
+    // TrackedObject ball_object;
 
     while(1){
         ++count;
@@ -319,6 +335,15 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
             }
 
             if (!benchmark && !dontdraw_bbox) draw_detections_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output);
+            // draw_detections_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output, ball_object);
+
+            // Process tracked object
+            // if (!ball_object.label.empty() && ball_object.label == "ball") {
+            //     printf("Current Position of Ball: (%d, %d)\n", ball_object.current_center_x, ball_object.current_center_y);
+            //     if (ball_object.previous_center_x != -1 && ball_object.previous_center_y != -1) {
+            //         printf("Previous Position of Ball: (%d, %d)\n", ball_object.previous_center_x, ball_object.previous_center_y);
+            //     }
+            // }
             free_detections(local_dets, local_nboxes);
             printf("src/demo.c line 323\n");
             printf("\nFPS:%.1f \t AVG_FPS:%.1f\n", fps, avg_fps);

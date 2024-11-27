@@ -61,7 +61,7 @@ Thumbs.db
 
 # Managed by CMake
 src/version.h
-
+ball_v1.data
 # Build artifacts
 lib/
 share/
@@ -71,3 +71,6 @@ uselib_track
 darknet
 kmeansiou
 vcpkg/
+Makefile
+
+.gitignore

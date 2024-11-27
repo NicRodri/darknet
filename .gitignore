@@ -13,6 +13,9 @@
 *.pyc
 *.bak
 *.mp4
+*.avi
+WIN*
+ball_v1*
 mnist/
 data/
 caffe/
@@ -71,3 +74,4 @@ uselib_track
 darknet
 kmeansiou
 vcpkg/
+jeff/ball_v1.data

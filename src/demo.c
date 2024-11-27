@@ -370,7 +370,6 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
 
             if (!benchmark && !dontdraw_bbox)
             {
-                printf("before process_frame\n");
 
                 if (!show_img)
                 {
@@ -394,13 +393,10 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
                 }
 
                 process_frame(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_classes);
-                printf("after process_frame\n");
             }
-            printf("After process_frame\n");
 
             free_detections(local_dets, local_nboxes);
 
-            printf("src/demo.c line 323\n");
             printf("\nFPS:%.1f \t AVG_FPS:%.1f\n", fps, avg_fps);
 
             if (!prefix)

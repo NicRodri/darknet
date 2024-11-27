@@ -1,7 +1,7 @@
 #ifndef DETECTION_HANDLER_H
 #define DETECTION_HANDLER_H
 
-#include "/root/scarlet/alexab/darknet/include/darknet.h"
+#include "/root/darknet/include/darknet.h"
 
 #ifdef __cplusplus
 extern "C" {

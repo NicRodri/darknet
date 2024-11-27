@@ -1,5 +1,7 @@
 classes = 3
-train = /root/scarlet/alexab/darknet/jeff/ball_v1_train.txt
-valid = /root/scarlet/alexab/darknet/jeff/ball_v1_valid.txt
-names = /root/scarlet/alexab/darknet/jeff/ball_v1.names
-backup = /root/scarlet/alexab/darknet/jeff/ball_v1
+
+train = /home/jeff/src/ball_v1/ball_v1_train.txt
+valid = /home/jeff/src/ball_v1/ball_v1_valid.txt
+names = /home/jeff/src/alex/darknet/jeff/ball_v1.names
+backup = /home/jeff/src/ball_v1
+

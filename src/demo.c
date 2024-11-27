@@ -9,6 +9,7 @@
 #include "image.h"
 #include "demo.h"
 #include "darknet.h"
+#include <unistd.h> // For usleep
 #ifdef WIN32
 #include <time.h>
 #include "gettimeofday.h"
@@ -147,6 +148,10 @@ double get_wall_time()
     }
     return (double)walltime.tv_sec + (double)walltime.tv_usec * .000001;
 }
+
+const int target_fps = 30;
+const double target_frame_time_s = 1.0 / target_fps; // Target time per frame in seconds
+double last_frame_time = 0.0;
 
 void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int cam_index, const char *filename, char **names, int classes, int avgframes,
           int frame_skip, char *prefix, char *out_filename, int mjpeg_port, int dontdraw_bbox, int json_port, int dont_show, int ext_output, int letter_box_in, int time_limit_sec, char *http_post_host,
@@ -305,8 +310,22 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
     DetectionResult ballnet = {0};
     DetectionResult table = {0};
 
+    double current_time = get_wall_time(); // Track the current time
+    double last_frame_time = current_time;
+
     while (1)
     {
+        current_time = get_wall_time();
+        double elapsed_time = current_time - last_frame_time;
+
+        // Skip frames if processing too fast
+        if (elapsed_time < target_frame_time_s)
+        {
+            usleep((target_frame_time_s - elapsed_time) * 1e6); // Sleep for remaining time
+            continue;
+        }
+
+        last_frame_time = current_time; // Update the last frame time
         ++count;
         {
             const float nms = .45; // 0.4F

@@ -13,6 +13,9 @@
 *.pyc
 *.bak
 *.mp4
+*.avi
+WIN*
+ball_v1*
 mnist/
 data/
 caffe/
@@ -74,3 +77,4 @@ vcpkg/
 Makefile
 
 .gitignore
+jeff/ball_v1.data

@@ -75,9 +75,11 @@ public:
     }
 
 private:
-    bool inBoundingBox = false;                      // Tracks whether the ball is in the table bounding box
-    bool isBounce = false;                           // Tracks if the bounce is detected
-    int bounceCount = 0;                             // Counter for bounces
+    bool inBoundingBox = false; // Tracks whether the ball is in the table bounding box
+    bool isBounce = false;      // Tracks if the bounce is detected
+    int bounceCount = 0;        // Counter for bounces
+    int bouncesP1 = 0;
+    int bouncesP2 = 0;
     bool validBounceTime = false;                    // Tracks if the ball entered the bounding box from the top
     std::chrono::steady_clock::time_point entryTime; // Time when the ball entered from the top
 
@@ -134,38 +136,40 @@ private:
         bool movingUp = ball.y < prevBallPosition.y;   // Ball is moving upward
 
         auto now = std::chrono::steady_clock::now();
-
-        // Check if the ball enters from the top
-        if (insideBox && !validBounceTime && prevBallPosition.y + ball.height <= table.y && movingDown)
+        if (!ball.x == 0)
         {
-            entryTime = now;        // Record the time of entry
-            validBounceTime = true; // Ball entered from the top
-        }
-
-        // Reset if timeout exceeds 500ms
-        if (validBounceTime &&
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - entryTime).count() > 500)
-        {
-            validBounceTime = false; // Timeout exceeded
-            inBoundingBox = false;   // Reset inBoundingBox flag
-        }
-
-        // Track if the ball remains in the bounding box
-        if (validBounceTime && insideBox)
-        {
-            inBoundingBox = true;
-        }
-
-        if (inBoundingBox && validBounceTime)
-        {
-            std::cout << "In Bounding box\n";
-
-            // Ball exits the bounding box through the top
-            if (ball.y + ball.height <= table.y - heightMargin && movingUp) // Exit through the top with margin
+            // Check if the ball enters from the top
+            if (insideBox)
             {
-                inBoundingBox = false;
-                validBounceTime = false; // Reset flags
-                return true;             // It's a valid bounce
+                entryTime = now;        // Record the time of entry
+                validBounceTime = true; // Ball entered from the top
+            }
+
+            // Reset if timeout exceeds 500ms
+            if (validBounceTime &&
+                std::chrono::duration_cast<std::chrono::milliseconds>(now - entryTime).count() > 500)
+            {
+                validBounceTime = false; // Timeout exceeded
+                inBoundingBox = false;   // Reset inBoundingBox flag
+            }
+
+            // Track if the ball remains in the bounding box
+            if (validBounceTime && insideBox)
+            {
+                inBoundingBox = true;
+            }
+
+            if (inBoundingBox && validBounceTime)
+            {
+                std::cout << "In Bounding box\n";
+
+                // Ball exits the bounding box through the top
+                if (movingUp) // Exit through the top with margin
+                {
+                    inBoundingBox = false;
+                    validBounceTime = false; // Reset flags
+                    return true;             // It's a valid bounce
+                }
             }
         }
 
@@ -178,8 +182,16 @@ private:
 
         if (isBounce)
         {
-            bounceCount++; // Increment bounce count
-            // Additional scoring logic for bounces can go here if needed
+            bounceCount++;
+            // Determine P1 or P2 bounce based on ball's position relative to the net
+            if (ball.x + ball.width / 2 < ballnet.x + ballnet.width/2) // Ball is to the left of the net
+            {
+                bouncesP1++;
+            }
+            else if (ball.x + ball.width / 2 > ballnet.x + ballnet.width/2) // Ball is to the right of the net
+            {
+                bouncesP2++;
+            }
         }
     }
 
@@ -215,9 +227,12 @@ private:
 
     void displayScores()
     {
+
         std::cout << "\nP1: " << std::setw(3) << scoreP1
                   << "       P2: " << std::setw(3) << scoreP2
-                  << "       Bounces: " << std::setw(3) << bounceCount << "\n"
+                  << "       Total Bounces: " << std::setw(3) << bounceCount
+                  << "       P1 Bounces: " << std::setw(3) << bouncesP1
+                  << "       P2 Bounces: " << std::setw(3) << bouncesP2 << "\n"
                   << std::endl;
     }
 

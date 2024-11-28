@@ -149,7 +149,7 @@ double get_wall_time()
     return (double)walltime.tv_sec + (double)walltime.tv_usec * .000001;
 }
 
-const int target_fps = 30;
+const int target_fps = 10;
 const double target_frame_time_s = 1.0 / target_fps; // Target time per frame in seconds
 double last_frame_time = 0.0;
 

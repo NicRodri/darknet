@@ -2,6 +2,7 @@
 #define DEMO_H
 
 #include "image.h"
+extern const int target_fps; // Declare the global fps variable
 #ifdef __cplusplus
 extern "C" {
 #endif

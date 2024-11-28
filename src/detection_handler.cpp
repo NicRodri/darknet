@@ -6,6 +6,7 @@
 #include <vector>
 #include <chrono>
 #include <iomanip>
+#include "demo.h"
 
 struct DetectionResult{
     int class_id;      // Class ID
@@ -19,10 +20,11 @@ class DetectionHandler{
     DetectionResult ball;
     DetectionResult ballnet;
     DetectionResult table;
+    int fps = target_fps;
 
     int scoreP1 = 0;
     int scoreP2 = 0;
-
+ 
     cv::Point prevBallPosition = { 0, 0 }; // Previous ball position to track movement
     std::chrono::steady_clock::time_point lastScoreTime;
     std::chrono::steady_clock::time_point lastBounceTime; // Initialize to current time
@@ -108,6 +110,9 @@ class DetectionHandler{
 
     // Used to detect if there is a bounce present in the video
     bool detectBounce(){
+
+        int bounceTimeoutMs = static_cast<int>(500 * (10.0 / fps)); // Scaled to maintain consistency across FPS
+
         // Margin as a ratio of the table's width and height
         const float marginRatio = 0.3f; // 30% of the table's dimensions (adjustable)
 
@@ -136,7 +141,7 @@ class DetectionHandler{
 
             // Reset if timeout exceeds 500ms
             if (validBounceTime &&
-                std::chrono::duration_cast<std::chrono::milliseconds>(now - entryTime).count() > 500){
+                std::chrono::duration_cast<std::chrono::milliseconds>(now - entryTime).count() > bounceTimeoutMs){
                 validBounceTime = false; // Timeout exceeded
                 inBoundingBox = false;   // Reset inBoundingBox flag
             }
@@ -170,6 +175,7 @@ class DetectionHandler{
 
     // Does the scoring logic
     void scoringLogic(){
+        int bounceTimeout = 3 * (10.0 / fps);
         isBounce = detectBounce(); // Check for a bounce
         auto now = std::chrono::steady_clock::now();
 
@@ -211,7 +217,7 @@ class DetectionHandler{
         }
         else{
             // Check if 3 seconds have elapsed since the last bounce
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastBounceTime).count() > 3){
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastBounceTime).count() > bounceTimeout){
                 if (ballStartedOnP1Side){
                     scoreP2++;
                     std::cout << "Timeout! Point for P2 due to no bounce for 2 seconds.\n";
@@ -266,6 +272,8 @@ class DetectionHandler{
             << "       P1 Bounces: " << std::setw(3) << bouncesP1
             << "       P2 Bounces: " << std::setw(3) << bouncesP2 << "\n"
             << std::endl;
+
+        std::cout << "\nFPS:  " << fps << "\n";
     }
 
     // Draws the bounding boxes in the video

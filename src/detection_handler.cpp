@@ -24,6 +24,7 @@ public:
 
     int scoreP1 = 0;
     int scoreP2 = 0;
+    cv::Point prevBallPosition = {0, 0}; // Previous ball position to track movement
     std::chrono::steady_clock::time_point lastScoreTime;
 
     DetectionHandler()
@@ -39,7 +40,7 @@ public:
         for (int i = 0; i < nboxes; ++i)
         {
             DetectionResult det = extractDetection(show_img, dets[i], thresh, names, classes);
-            if (det.class_id < 0|| det.prob < 0.85)
+            if (det.class_id < 0 || det.prob < 0.85)
                 continue;
 
             if (strcmp(names[det.class_id], "ball") == 0)
@@ -69,16 +70,24 @@ public:
         // Render output
         displayResults(show_img);
         displayScores();
+
+        prevBallPosition = {ball.x, ball.y};
     }
 
 private:
+    bool inBoundingBox = false;                      // Tracks whether the ball is in the table bounding box
+    bool isBounce = false;                           // Tracks if the bounce is detected
+    int bounceCount = 0;                             // Counter for bounces
+    bool validBounceTime = false;                    // Tracks if the ball entered the bounding box from the top
+    std::chrono::steady_clock::time_point entryTime; // Time when the ball entered from the top
+
     void reset()
     {
         ball = {0};
         ballnet = {0};
         table = {0};
     }
- 
+
     DetectionResult extractDetection(cv::Mat *show_img, detection &det, float thresh, char **names, int classes)
     {
         int class_id = -1;
@@ -105,37 +114,115 @@ private:
         return {class_id, max_prob, x, y, width, height};
     }
 
-    void scoringLogic()
+    bool detectBounce()
     {
-        if (ball.width > 0 && table.width > 0)
+        // Margin as a ratio of the table's width and height
+        const float marginRatio = 0.3f; // 30% of the table's dimensions (adjustable)
+
+        // Calculate margin based on the table's size
+        int widthMargin = static_cast<int>(table.width * marginRatio);
+        int heightMargin = static_cast<int>(table.height * marginRatio);
+
+        // Check if ball is within the table's bounding box with tolerance
+        bool insideBox = (ball.x >= table.x - widthMargin &&
+                          ball.x + ball.width <= table.x + table.width + widthMargin &&
+                          ball.y >= table.y - heightMargin &&
+                          ball.y + ball.height <= table.y + table.height + heightMargin);
+
+        // Determine the vertical movement direction
+        bool movingDown = ball.y > prevBallPosition.y; // Ball is moving downward
+        bool movingUp = ball.y < prevBallPosition.y;   // Ball is moving upward
+
+        auto now = std::chrono::steady_clock::now();
+
+        // Check if the ball enters from the top
+        if (insideBox && !validBounceTime && prevBallPosition.y + ball.height <= table.y && movingDown)
         {
-            if (ball.x < table.x)
+            entryTime = now;        // Record the time of entry
+            validBounceTime = true; // Ball entered from the top
+        }
+
+        // Reset if timeout exceeds 500ms
+        if (validBounceTime &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - entryTime).count() > 500)
+        {
+            validBounceTime = false; // Timeout exceeded
+            inBoundingBox = false;   // Reset inBoundingBox flag
+        }
+
+        // Track if the ball remains in the bounding box
+        if (validBounceTime && insideBox)
+        {
+            inBoundingBox = true;
+        }
+
+        if (inBoundingBox && validBounceTime)
+        {
+            std::cout << "In Bounding box\n";
+
+            // Ball exits the bounding box through the top
+            if (ball.y + ball.height <= table.y - heightMargin && movingUp) // Exit through the top with margin
             {
-                scoreP2++;
-                lastScoreTime = std::chrono::steady_clock::now();
-            }
-            else if (ball.x + ball.width > table.x + table.width)
-            {
-                scoreP1++;
-                lastScoreTime = std::chrono::steady_clock::now();
+                inBoundingBox = false;
+                validBounceTime = false; // Reset flags
+                return true;             // It's a valid bounce
             }
         }
+
+        return false; // No bounce detected
+    }
+
+    void scoringLogic()
+    {
+        isBounce = detectBounce(); // Check for a bounce
+
+        if (isBounce)
+        {
+            bounceCount++; // Increment bounce count
+            // Additional scoring logic for bounces can go here if needed
+        }
+    }
+
+    std::string getMovementDirection()
+    {
+        if (ball.y > prevBallPosition.y)
+        {
+            return "Moving Down (Previous Position: x=" + std::to_string(prevBallPosition.x) + ", y=" + std::to_string(prevBallPosition.y) + ")";
+        }
+        else if (ball.y < prevBallPosition.y)
+        {
+            return "Moving Up (Previous Position: x=" + std::to_string(prevBallPosition.x) + ", y=" + std::to_string(prevBallPosition.y) + ")";
+        }
+        return "Stationary (Previous Position: x=" + std::to_string(prevBallPosition.x) + ", y=" + std::to_string(prevBallPosition.y) + ")";
     }
 
     void displayResults(cv::Mat *show_img)
     {
-        std::cout << "Ball: x=" << ball.x << ", y=" << ball.y << ", w=" << ball.width << ", h=" << ball.height << std::endl;
-        std::cout << "Net: x=" << ballnet.x << ", y=" << ballnet.y << ", w=" << ballnet.width << ", h=" << ballnet.height << std::endl;
-        std::cout << "Table: x=" << table.x << ", y=" << table.y << ", w=" << table.width << ", h=" << table.height << std::endl;
+        // Get the movement direction using the modular function
+        std::string movementDirection = getMovementDirection();
+
+        // Display ball, net, and table details
+        std::cout << "Ball: x=" << ball.x << ", y=" << ball.y
+                  << ", w=" << ball.width << ", h=" << ball.height
+                  << ", Direction: " << movementDirection << std::endl;
+
+        std::cout << "Net: x=" << ballnet.x << ", y=" << ballnet.y
+                  << ", w=" << ballnet.width << ", h=" << ballnet.height << std::endl;
+
+        std::cout << "Table: x=" << table.x << ", y=" << table.y
+                  << ", w=" << table.width << ", h=" << table.height << std::endl;
     }
 
     void displayScores()
     {
-        std::cout << "\nP1: " << std::setw(3) << scoreP1 << "       P2: " << std::setw(3) << scoreP2 << "\n"
+        std::cout << "\nP1: " << std::setw(3) << scoreP1
+                  << "       P2: " << std::setw(3) << scoreP2
+                  << "       Bounces: " << std::setw(3) << bounceCount << "\n"
                   << std::endl;
     }
 
-    void drawBoundingBoxWithLabel(cv::Mat* show_img, const DetectionResult& det, const std::string& label, cv::Scalar color) {
+    void drawBoundingBoxWithLabel(cv::Mat *show_img, const DetectionResult &det, const std::string &label, cv::Scalar color)
+    {
         cv::Rect rect(det.x, det.y, det.width, det.height);
         cv::rectangle(*show_img, rect, color, 2);
 

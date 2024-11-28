@@ -31,4 +31,6 @@ while true; do
     fi
 
     sleep 1  # Check for changes every second
+
 done
+

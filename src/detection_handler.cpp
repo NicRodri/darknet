@@ -1,11 +1,12 @@
 #include "detection_handler.h"
-#include "/root/scarlet/alexab/darknet/include/darknet.h"
+#include "/home/jeff/src/alex/darknet/include/darknet.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <chrono>
 #include <iomanip>
+#include <fstream> // For file handling
 
 struct DetectionResult
 {
@@ -18,13 +19,19 @@ struct DetectionResult
 class DetectionHandler
 {
 public:
+    DetectionResult prevBall;
     DetectionResult ball;
     DetectionResult ballnet;
     DetectionResult table;
 
     int scoreP1 = 0;
     int scoreP2 = 0;
+    int moving_right = -1;
+    int player_to_score = 0;
+    int bounce = 0;
+    int bounce_num = 0;
     std::chrono::steady_clock::time_point lastScoreTime;
+    std::chrono::steady_clock::time_point pass_over;
 
     DetectionHandler()
     {
@@ -59,19 +66,91 @@ public:
             }
         }
 
+        
+
         // Perform scoring logic with a 1-second buffer
-        auto now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(now - lastScoreTime).count() >= 1)
+        directionDetection();
+
+        
+        
+        
+        if ((ball.y - prevBall.y) < -100 && (ball.y != 0 || prevBall.y != 0))
+    {
+        bounce = 1;
+
+        // Log bounce information to a file
+        std::ofstream logFile("bounce_log.txt", std::ios::app); // Open file in append mode
+        if (logFile.is_open())
         {
-            scoringLogic();
+            logFile << "Bounce #" << bounce_num << ": ball.y = " << ball.y << ", prevBall.y = " << prevBall.y << "\n";
+            logFile.close();
         }
+        else
+        {
+            printf("donefucked up\n");
+            std::cerr << "Error: Unable to open file for logging!" << std::endl;
+        }
+
+        bounce_num++;
+    }
+
+        printf("moving right ? %d \n", moving_right);
+
+        auto now = std::chrono::steady_clock::now();
+
+
+
+        if (ball.x > ballnet.x && moving_right == 1&& player_to_score !=1){
+            player_to_score = 1;
+            pass_over = now;
+            bounce =0;
+        }
+
+        if (ball.x < ballnet.x && moving_right == 0 && player_to_score !=2){
+            player_to_score = 2;
+            pass_over = now;
+            bounce =0;
+        }
+
+        // if (pass_over == now){
+        //     bounce =0;
+        // }
+
+        printf("bounce %d \n", bounce);
+        printf("player to score %d \n", player_to_score);
+        printf("prevBall y %d \n", prevBall.y);
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - pass_over).count() >= 1 && bounce ==1 &&std::chrono::duration_cast<std::chrono::seconds>(now - lastScoreTime).count() >= 1){
+            scoringLogic();
+            player_to_score = 0;
+            moving_right = -1;
+            bounce =0;
+        }
+        // if (std::chrono::duration_cast<std::chrono::seconds>(now - lastScoreTime).count() >= 1 && moving_right != -1)
+        // {   
+            
+        //     scoringLogic(moving_right);
+        // }
 
         // Render output
         displayResults(show_img);
-        displayScores();
+        displayScores(show_img);
+        prevBall = ball;
     }
 
 private:
+    
+
+    void directionDetection(){
+        if ((prevBall.x - ball.x) > 30){
+                moving_right = 0;
+            } else if ((prevBall.x - ball.x) < -30) {
+                moving_right = 1;
+            }
+        if (prevBall.x == 0 || ball.x ==0|| ((prevBall.x - ball.x) < 30 && (prevBall.x - ball.x) > -30)){
+            moving_right =-1;
+        }
+    }
+
     void reset()
     {
         ball = {0};
@@ -105,22 +184,33 @@ private:
         return {class_id, max_prob, x, y, width, height};
     }
 
-    void scoringLogic()
-    {
-        if (ball.width > 0 && table.width > 0)
-        {
-            if (ball.x < table.x)
-            {
-                scoreP2++;
-                lastScoreTime = std::chrono::steady_clock::now();
-            }
-            else if (ball.x + ball.width > table.x + table.width)
-            {
-                scoreP1++;
-                lastScoreTime = std::chrono::steady_clock::now();
-            }
+    void scoringLogic(){
+        if (player_to_score == 1){
+            scoreP1++;
+            bounce =0;
+        } else if (player_to_score == 2){
+            scoreP2++;
+            bounce =0;
         }
+
     }
+
+    // void scoringLogic(int move_right)
+    // {
+    //     if (ball.width > 0 && table.width > 0)
+    //     {
+    //         if ((ball.x - table.x) < -500 && move_right == 0)
+    //         {
+    //             scoreP2++;
+    //             lastScoreTime = std::chrono::steady_clock::now();
+    //         }
+    //         else if (((ball.x + ball.width) - (table.x + table.width) > 500) && move_right == 1)
+    //         {
+    //             scoreP1++;
+    //             lastScoreTime = std::chrono::steady_clock::now();
+    //         }
+    //     }
+    // }
 
     void displayResults(cv::Mat *show_img)
     {
@@ -129,10 +219,12 @@ private:
         std::cout << "Table: x=" << table.x << ", y=" << table.y << ", w=" << table.width << ", h=" << table.height << std::endl;
     }
 
-    void displayScores()
+    void displayScores(cv::Mat *show_img)
     {
-        std::cout << "\nP1: " << std::setw(3) << scoreP1 << "       P2: " << std::setw(3) << scoreP2 << "\n"
-                  << std::endl;
+        std::cout << "\nP1: " << std::setw(3) << scoreP1 << "       P2: " << std::setw(3) << scoreP2 << "\n" << std::endl;
+        char score_text[100];
+        sprintf(score_text, "P1: %d | P2: %d", scoreP1, scoreP2);
+        cv::putText(*show_img, score_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, CV_RGB(255, 255, 255), 2);
     }
 
     void drawBoundingBoxWithLabel(cv::Mat* show_img, const DetectionResult& det, const std::string& label, cv::Scalar color) {

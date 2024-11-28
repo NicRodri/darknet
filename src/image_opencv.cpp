@@ -1010,12 +1010,7 @@ extern "C" {
     // ----------------------------------------
 
 
-extern "C" void save_cv_jpg(mat_cv *img_src, const char *name)
-{
-    cv::Mat* img = (cv::Mat*)img_src;
-    save_mat_jpg(*img, name);
-}
-// ----------------------------------------
+
 
 
 // ====================================================================
@@ -1324,10 +1319,11 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
 
             }
         }
+    }
         catch (...) {
             cerr << "OpenCV exception: draw_detections_cv_v3() \n";
         }
-    }
+}
     // ----------------------------------------
 
     // ====================================================================

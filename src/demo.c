@@ -9,6 +9,7 @@
 #include "image.h"
 #include "demo.h"
 #include "darknet.h"
+#include <unistd.h> // For usleep
 #ifdef WIN32
 #include <time.h>
 #include "gettimeofday.h"
@@ -19,21 +20,6 @@
 #ifdef OPENCV
 
 #include "http_stream.h"
-
-// struct TrackedObject {
-//     std::string label;
-//     int current_center_x;
-//     int current_center_y;
-//     int previous_center_x;
-//     int previous_center_y;
-//     int left;
-//     int top;
-//     int right;
-//     int bottom;
-
-//     TrackedObject() : previous_center_x(-1), previous_center_y(-1) {}
-// };
-
 
 static char **demo_names;
 static image **demo_alphabet;
@@ -162,6 +148,10 @@ double get_wall_time()
     }
     return (double)walltime.tv_sec + (double)walltime.tv_usec * .000001;
 }
+
+const int target_fps = 30;
+const double target_frame_time_s = 1.0 / target_fps; // Target time per frame in seconds
+double last_frame_time = 0.0;
 
 void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int cam_index, const char *filename, char **names, int classes, int avgframes,
           int frame_skip, char *prefix, char *out_filename, int mjpeg_port, int dontdraw_bbox, int json_port, int dont_show, int ext_output, int letter_box_in, int time_limit_sec, char *http_post_host,
@@ -305,7 +295,6 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
     float avg_fps = 0;
     int frame_counter = 0;
     int global_frame_counter = 0;
-    // TrackedObject ball_object;
 
     // Define the DetectionResult struct
     typedef struct
@@ -321,8 +310,22 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
     DetectionResult ballnet = {0};
     DetectionResult table = {0};
 
+    double current_time = get_wall_time(); // Track the current time
+    double last_frame_time = current_time;
+
     while (1)
     {
+        current_time = get_wall_time();
+        double elapsed_time = current_time - last_frame_time;
+
+        // Skip frames if processing too fast
+        if (elapsed_time < target_frame_time_s)
+        {
+            usleep((target_frame_time_s - elapsed_time) * 1e6); // Sleep for remaining time
+            continue;
+        }
+
+        last_frame_time = current_time; // Update the last frame time
         ++count;
         {
             const float nms = .45; // 0.4F
@@ -382,17 +385,34 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
                 }
             }
 
+            // if (!benchmark && !dontdraw_bbox) draw_detections_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output);
 
-            if (!benchmark && !dontdraw_bbox) draw_detections_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output);
-            // draw_detections_cv_v3(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_ext_output, ball_object);
+            if (!benchmark && !dontdraw_bbox)
+            {
 
-            // Process tracked object
-            // if (!ball_object.label.empty() && ball_object.label == "ball") {
-            //     printf("Current Position of Ball: (%d, %d)\n", ball_object.current_center_x, ball_object.current_center_y);
-            //     if (ball_object.previous_center_x != -1 && ball_object.previous_center_y != -1) {
-            //         printf("Previous Position of Ball: (%d, %d)\n", ball_object.previous_center_x, ball_object.previous_center_y);
-            //     }
-            // }
+                if (!show_img)
+                {
+                    printf("Error: show_img is null!\n");
+                }
+                if (!local_dets)
+                {
+                    printf("Error: local_dets is null!\n");
+                }
+                if (!demo_names)
+                {
+                    printf("Error: demo_names is null!\n");
+                }
+                if (local_nboxes <= 0)
+                {
+                    printf("Error: local_nboxes is invalid: %d\n", local_nboxes);
+                }
+                if (demo_classes <= 0)
+                {
+                    printf("Error: demo_classes is invalid: %d\n", demo_classes);
+                }
+
+                process_frame(show_img, local_dets, local_nboxes, demo_thresh, demo_names, demo_classes);
+            }
 
             free_detections(local_dets, local_nboxes);
 

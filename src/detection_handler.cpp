@@ -1,5 +1,5 @@
 #include "detection_handler.h"
-#include "/root/scarlet/alexab/darknet/include/darknet.h"
+#include "../include/darknet.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <string>

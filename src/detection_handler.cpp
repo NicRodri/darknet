@@ -78,7 +78,7 @@ private:
         ballnet = {0};
         table = {0};
     }
-
+ 
     DetectionResult extractDetection(cv::Mat *show_img, detection &det, float thresh, char **names, int classes)
     {
         int class_id = -1;

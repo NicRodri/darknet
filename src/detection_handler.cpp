@@ -26,6 +26,7 @@ public:
     int scoreP2 = 0;
     cv::Point prevBallPosition = {0, 0}; // Previous ball position to track movement
     std::chrono::steady_clock::time_point lastScoreTime;
+    std::chrono::steady_clock::time_point lastBounceTime; // Initialize to current time
 
     DetectionHandler()
     {
@@ -80,6 +81,11 @@ private:
     int bounceCount = 0;        // Counter for bounces
     int bouncesP1 = 0;
     int bouncesP2 = 0;
+    bool lastBounceP1 = false;                            // Tracks if the last bounce was on P1's side
+    bool lastBounceP2 = false;                            // Tracks if the last bounce was on P2's side
+    bool ballStartedOnP1Side = false;                     // Tracks where the ball originated
+    bool ballStartedOnP2Side = false;
+
     bool validBounceTime = false;                    // Tracks if the ball entered the bounding box from the top
     std::chrono::steady_clock::time_point entryTime; // Time when the ball entered from the top
 
@@ -176,21 +182,76 @@ private:
         return false; // No bounce detected
     }
 
+    void resetBounceFlags()
+    {
+        lastBounceP1 = false;
+        lastBounceP2 = false;
+        ballStartedOnP1Side = false;
+        ballStartedOnP2Side = false;
+    }
+
     void scoringLogic()
     {
         isBounce = detectBounce(); // Check for a bounce
+        auto now = std::chrono::steady_clock::now();
 
         if (isBounce)
         {
+            lastBounceTime = now; // Update the time of the last bounce
             bounceCount++;
-            // Determine P1 or P2 bounce based on ball's position relative to the net
-            if (ball.x + ball.width / 2 < ballnet.x + ballnet.width/2) // Ball is to the left of the net
+
+            // Determine which side the bounce occurred on
+            if (ball.x + ball.width / 2 < ballnet.x + ballnet.width / 2) // Ball on P1's side
             {
                 bouncesP1++;
+                if (lastBounceP1) // Consecutive bounce on P1 side
+                {
+                    scoreP2++;
+                    std::cout << "Point for P2! Ball bounced twice on P1's side.\n";
+                    resetBounceFlags();
+                }
+                else
+                {
+                    lastBounceP1 = true;
+                    lastBounceP2 = false;
+                    ballStartedOnP1Side = true; // Track ball's origin
+                    ballStartedOnP2Side = false;
+                }
             }
-            else if (ball.x + ball.width / 2 > ballnet.x + ballnet.width/2) // Ball is to the right of the net
+            else if (ball.x + ball.width / 2 > ballnet.x + ballnet.width / 2) // Ball on P2's side
             {
                 bouncesP2++;
+                if (lastBounceP2) // Consecutive bounce on P2 side
+                {
+                    scoreP1++;
+                    std::cout << "Point for P1! Ball bounced twice on P2's side.\n";
+                    resetBounceFlags();
+                }
+                else
+                {
+                    lastBounceP2 = true;
+                    lastBounceP1 = false;
+                    ballStartedOnP2Side = true; // Track ball's origin
+                    ballStartedOnP1Side = false;
+                }
+            }
+        }
+        else
+        {
+            // Check if 3 seconds have elapsed since the last bounce
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastBounceTime).count() > 3)
+            {
+                if (ballStartedOnP1Side)
+                {
+                    scoreP2++;
+                    std::cout << "Timeout! Point for P2 due to no bounce for 2 seconds.\n";
+                }
+                else if (ballStartedOnP2Side)
+                {
+                    scoreP1++;
+                    std::cout << "Timeout! Point for P1 due to no bounce for 2 seconds.\n";
+                }
+                resetBounceFlags(); // Reset for the next rally
             }
         }
     }
